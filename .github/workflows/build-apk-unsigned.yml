@@ -1,4 +1,4 @@
-# 📱 Build Unsigned Android APK (React + Capacitor)
+# ⚙️ Build Unsigned Android APK (React + Capacitor)
 # ضع الملف في: .github/workflows/build-apk-unsigned.yml
 # لتشغيل يدوي: Actions → Build Android APK (Unsigned) → Run workflow
 
@@ -19,15 +19,15 @@ jobs:
       NODE_OPTIONS: '--max_old_space_size=4096'
 
     steps:
-      - name: Checkout repository
+      - name: 🧩 Checkout repository
         uses: actions/checkout@v4
 
-      - name: Use Node.js 18
+      - name: ⚙️ Use Node.js 18
         uses: actions/setup-node@v4
         with:
           node-version: 18
 
-      - name: Cache node modules
+      - name: 💾 Cache node modules
         uses: actions/cache@v4
         with:
           path: ~/.npm
@@ -35,7 +35,7 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-node-
 
-      - name: Install dependencies
+      - name: 📦 Install dependencies
         run: |
           if [ -f package-lock.json ]; then
             npm ci
@@ -43,23 +43,23 @@ jobs:
             npm install
           fi
 
-      - name: Build web assets
+      - name: 🧱 Build web assets
         run: |
+          echo "📦 Building web assets..."
           npm run build --if-present
           echo "Web build dir: ${{ github.event.inputs.web_dir }}"
           ls -la "${{ github.event.inputs.web_dir }}" || true
 
-      - name: Install Capacitor CLI & Android
+      - name: ⚡ Install Capacitor core + CLI + Android
         run: |
           npm install --no-save @capacitor/cli @capacitor/core @capacitor/android
 
-      - name: Create or update capacitor.config.json
+      - name: 📝 Create or update capacitor.config.json
         run: |
           WEBDIR="${{ github.event.inputs.web_dir }}"
           if [ -f capacitor.config.json ]; then
             node -e "const fs=require('fs');let c=require('./capacitor.config.json');c.webDir='$WEBDIR';delete c.bundledWebRuntime;fs.writeFileSync('capacitor.config.json', JSON.stringify(c,null,2));"
           else
-            echo "Creating capacitor.config.json..."
             cat > capacitor.config.json <<EOF
           {
             "appId": "com.example.app",
@@ -68,42 +68,53 @@ jobs:
           }
           EOF
           fi
+          echo "✅ capacitor.config.json ready:"
           cat capacitor.config.json
 
-      - name: Ensure Android platform exists
+      - name: 📱 Ensure Android platform exists
         run: |
           if [ ! -d android ]; then
-            echo "⚙️ Adding Android platform..."
+            echo "🧩 Adding Android platform..."
             npx cap add android
           else
             echo "✅ Android platform already exists."
           fi
 
-      - name: Copy web assets
-        run: npx cap copy android --build
+      - name: 🔄 Copy web assets to Android
+        run: |
+          echo "Copying web assets..."
+          npx cap sync android
+        continue-on-error: true  # يمنع توقف السير العمل في حال تحذير بسيط
 
-      - name: Set up Java 17
+      - name: ☕ Set up Java 17
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: Set up Android SDK (latest)
+      - name: 🤖 Set up Android SDK (latest)
         uses: android-actions/setup-android@v3
 
-      - name: Build unsigned APKs
+      - name: 🏗️ Build unsigned APKs
         working-directory: android
         run: |
-          chmod +x ./gradlew || true
+          if [ ! -f ./gradlew ]; then
+            echo "❌ gradlew not found. Ensure android platform added successfully."
+            exit 1
+          fi
+          chmod +x ./gradlew
+          echo "🚀 Building APKs (debug & release)..."
           ./gradlew clean assembleDebug assembleRelease
         env:
           GRADLE_OPTS: "-Dorg.gradle.jvmargs=-Xmx2g"
 
-      - name: List generated APKs
+      - name: 📋 List generated APKs
         working-directory: android
-        run: find . -type f \( -name "*.apk" -o -name "*.aab" \) -print
+        run: |
+          echo "Generated APKs:"
+          find . -type f \( -name "*.apk" -o -name "*.aab" \) -print || echo "⚠️ No APKs found."
 
-      - name: Upload APK artifacts
+      - name: 📤 Upload APK artifacts
         uses: actions/upload-artifact@v4
         with:
           name: android-unsigned-apks
