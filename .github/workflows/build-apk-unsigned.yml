@@ -1,11 +1,14 @@
-# GitHub Actions workflow لبناء APK غير موقع لتطبيق React (TypeScript)
-# ضع هذا الملف في: .github/workflows/build-apk-unsigned.yml
-# تشغيل يدوي: Actions -> Build Android APK (Unsigned) -> Run workflow
+# 📱 Build Unsigned Android APK (React + Capacitor)
+# ضع الملف في: .github/workflows/build-apk-unsigned.yml
+# لتشغيل يدوي: Actions → Build Android APK (Unsigned) → Run workflow
+
+name: Build Android APK (Unsigned)
+
 on:
   workflow_dispatch:
     inputs:
       web_dir:
-        description: 'مجلد ناتج البناء (لتطبيق: build أو dist)'
+        description: 'مجلد ناتج البناء (build أو dist)'
         required: false
         default: 'build'
 
@@ -15,6 +18,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       NODE_OPTIONS: '--max_old_space_size=4096'
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -34,28 +38,28 @@ jobs:
 
       - name: Install dependencies
         run: |
-          if [ -f package-lock.json ]; then npm ci; else npm install; fi
+          if [ -f package-lock.json ]; then
+            npm ci
+          else
+            npm install
+          fi
 
       - name: Build web assets
         run: |
-          # غيّر الأمر إذا تستخدم yarn أو أمر مخصص
           npm run build --if-present
           echo "Web build dir: ${{ github.event.inputs.web_dir }}"
           ls -la "${{ github.event.inputs.web_dir }}" || true
 
       - name: Install Capacitor CLI & core
-        run: |
-          npm install --no-save @capacitor/cli @capacitor/core
+        run: npm install --no-save @capacitor/cli @capacitor/core
 
-      - name: Ensure capacitor.config.json exists (set webDir)
+      - name: Ensure capacitor.config.json exists
         run: |
           WEBDIR="${{ github.event.inputs.web_dir }}"
           if [ -f capacitor.config.json ]; then
-            echo "capacitor.config.json exists; updating webDir to $WEBDIR"
-            node -e "const fs=require('fs'); const c=require('./capacitor.config.json'); c.webDir='$WEBDIR'; fs.writeFileSync('capacitor.config.json', JSON.stringify(c, null, 2));"
-            cat capacitor.config.json
+            node -e "const fs=require('fs');let c=require('./capacitor.config.json');c.webDir='$WEBDIR';fs.writeFileSync('capacitor.config.json', JSON.stringify(c,null,2));"
           else
-            echo "Creating capacitor.config.json with webDir=$WEBDIR"
+            echo "Creating capacitor.config.json..."
             cat > capacitor.config.json <<EOF
           {
             "appId": "com.example.app",
@@ -64,48 +68,37 @@ jobs:
             "bundledWebRuntime": false
           }
           EOF
-            cat capacitor.config.json
           fi
+          cat capacitor.config.json
 
-      - name: Ensure Android platform exists and copy web assets
+      - name: Add Android platform & copy web assets
         run: |
-          if [ -d "android" ]; then
-            echo "android platform already exists"
-          else
-            npx cap add android || true
+          if [ ! -d android ]; then
+            npx cap add android
           fi
-          npx cap copy android --build || true
+          npx cap copy android --build
 
-      - name: Set up Java 11
+      - name: Set up Java 17
         uses: actions/setup-java@v4
         with:
-          distribution: temurin
-          java-version: '11'
+          distribution: 'temurin'
+          java-version: '17'
 
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v2
-        with:
-          api-level: 33
-          build-tools: 33.0.2
+      # ✅ التعديل المهم هنا
+      - name: Set up Android SDK (latest stable)
+        uses: android-actions/setup-android@v3
 
-      - name: Build APKs (unsigned)
+      - name: Build unsigned APK
         working-directory: android
         run: |
           chmod +x ./gradlew || true
-          if [ ! -f ./gradlew ]; then
-            echo "gradlew not found in android/. تأكد أن منصة Android متاحة."
-            exit 1
-          fi
-          # سنبني debug و release (release سيكون بدون توقيع - unsigned)
-          ./gradlew clean assembleDebug assembleRelease || true
+          ./gradlew clean assembleDebug assembleRelease
         env:
-          GRADLE_OPTS: "-Dorg.gradle.jvmargs=-Xmx1536m"
+          GRADLE_OPTS: "-Dorg.gradle.jvmargs=-Xmx2g"
 
-      - name: List generated APK/AAB files
+      - name: List generated APKs
         working-directory: android
-        run: |
-          echo "Generated artifacts:"
-          find . -type f -name "*.apk" -o -name "*.aab" -maxdepth 8 || true
+        run: find . -type f \( -name "*.apk" -o -name "*.aab" \) -print
 
       - name: Upload APK/AAB artifacts
         uses: actions/upload-artifact@v4
