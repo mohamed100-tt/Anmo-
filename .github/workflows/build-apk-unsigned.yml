@@ -1,6 +1,5 @@
 # ⚙️ Build Unsigned Android APK (React + Capacitor)
-# ضع الملف في: .github/workflows/build-apk-unsigned.yml
-# لتشغيل يدوي: Actions → Build Android APK (Unsigned) → Run workflow
+# ملف: .github/workflows/build-apk-unsigned.yml
 
 name: Build Android APK (Unsigned)
 
@@ -50,41 +49,40 @@ jobs:
           echo "Web build dir: ${{ github.event.inputs.web_dir }}"
           ls -la "${{ github.event.inputs.web_dir }}" || true
 
-      - name: ⚡ Install Capacitor core + CLI + Android
+      - name: ⚡ Install Capacitor core + Android
         run: |
-          npm install --no-save @capacitor/cli @capacitor/core @capacitor/android
+          npm install --no-save @capacitor/core @capacitor/cli @capacitor/android
 
-      - name: 📝 Create or update capacitor.config.json
+      - name: 🧩 Create capacitor.config.json
         run: |
           WEBDIR="${{ github.event.inputs.web_dir }}"
-          if [ -f capacitor.config.json ]; then
-            node -e "const fs=require('fs');let c=require('./capacitor.config.json');c.webDir='$WEBDIR';delete c.bundledWebRuntime;fs.writeFileSync('capacitor.config.json', JSON.stringify(c,null,2));"
-          else
-            cat > capacitor.config.json <<EOF
+          cat > capacitor.config.json <<EOF
           {
             "appId": "com.example.app",
             "appName": "ReactApp",
             "webDir": "$WEBDIR"
           }
           EOF
-          fi
-          echo "✅ capacitor.config.json ready:"
           cat capacitor.config.json
 
-      - name: 📱 Ensure Android platform exists
+      - name: 🧰 Rebuild Android platform (force)
         run: |
-          if [ ! -d android ]; then
-            echo "🧩 Adding Android platform..."
-            npx cap add android
-          else
-            echo "✅ Android platform already exists."
-          fi
+          rm -rf android
+          echo "🧱 Rebuilding Android platform..."
+          npx cap add android
+          npx cap doctor
+          ls -la android || true
+          echo "✅ Android platform rebuilt."
 
-      - name: 🔄 Copy web assets to Android
+      - name: 🔄 Sync Capacitor
         run: |
-          echo "Copying web assets..."
           npx cap sync android
-        continue-on-error: true  # يمنع توقف السير العمل في حال تحذير بسيط
+          ls -la android || true
+          if [ ! -f "android/capacitor.settings.gradle" ]; then
+            echo "❌ capacitor.settings.gradle missing. Android platform creation failed."
+            exit 1
+          fi
+          echo "✅ capacitor.settings.gradle exists."
 
       - name: ☕ Set up Java 17
         uses: actions/setup-java@v4
@@ -92,17 +90,13 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: 🤖 Set up Android SDK (latest)
+      - name: 🤖 Set up Android SDK
         uses: android-actions/setup-android@v3
 
       - name: 🏗️ Build unsigned APKs
         working-directory: android
         run: |
-          if [ ! -f ./gradlew ]; then
-            echo "❌ gradlew not found. Ensure android platform added successfully."
-            exit 1
-          fi
-          chmod +x ./gradlew
+          chmod +x ./gradlew || true
           echo "🚀 Building APKs (debug & release)..."
           ./gradlew clean assembleDebug assembleRelease
         env:
