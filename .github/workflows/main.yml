@@ -1,82 +1,38 @@
+name: toolkit-audit
 on:
   push:
-    branches: [ main ]
+    branches:
+      - main
+    paths-ignore:
+      - '**.md'
   pull_request:
-    branches: [ main ]
+    paths-ignore:
+      - '**.md'
 
 jobs:
-  build-android:
-    name: Build Android (Capacitor 4)
+
+  build:
+    name: Audit
+
     runs-on: ubuntu-latest
-    env:
-      ANDROID_SDK_ROOT: ${{ runner.temp }}/android-sdk
 
     steps:
-      - name: Checkout repo
-        uses: actions/checkout@v4
+    - name: Checkout
+      uses: actions/checkout@v5
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '18'
+    - name: Set Node.js 24.x
+      uses: actions/setup-node@v5
+      with:
+        node-version: 24.x
 
-      - name: Cache node modules
-        uses: actions/cache@v3
-        with:
-          path: |
-            ~/.npm
-            node_modules
-          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
-          restore-keys: |
-            ${{ runner.os }}-node-
+    - name: npm install
+      run: npm install
 
-      - name: Install dependencies
-        run: npm ci
+    - name: Bootstrap
+      run: npm run bootstrap
 
-      - name: Build web assets
-        run: npm run build
+    - name: audit tools (without allow-list)
+      run: npm audit --audit-level=moderate --omit dev
 
-      - name: Ensure Capacitor CLI (uses project's CLI via npx if in package.json)
-        run: |
-          npx -y @capacitor/cli@4 --version || npm install --no-audit --no-fund @capacitor/cli@^4
-
-      - name: Sync Capacitor native (generate/update android/)
-        run: npx cap sync android
-
-      - name: Setup JDK 11
-        uses: actions/setup-java@v4
-        with:
-          distribution: 'temurin'
-          java-version: '11'
-
-      - name: Install Android SDK command-line tools
-        run: |
-          mkdir -p $ANDROID_SDK_ROOT/cmdline-tools
-          cd $ANDROID_SDK_ROOT
-          wget -q https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip -O cmdline-tools.zip
-          unzip -q cmdline-tools.zip -d cmdline-tools
-          mv cmdline-tools/cmdline-tools cmdline-tools/latest || true
-          rm cmdline-tools.zip
-          yes | $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager --sdk_root=$ANDROID_SDK_ROOT --licenses
-          $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager --sdk_root=$ANDROID_SDK_ROOT "platform-tools" "platforms;android-33" "build-tools;33.0.2"
-
-      - name: Show Android SDK info
-        run: |
-          $ANDROID_SDK_ROOT/platform-tools/adb version || true
-          ls -la $ANDROID_SDK_ROOT
-
-      - name: Build Android (Gradle assemble)
-        working-directory: android
-        env:
-          JAVA_HOME: ${{ runner.tool_cache }}/temurin/11/x64
-          ANDROID_SDK_ROOT: ${{ env.ANDROID_SDK_ROOT }}
-        run: |
-          chmod +x ./gradlew
-          ./gradlew --no-daemon clean assembleRelease
-
-      - name: Upload APK artifact
-        if: success()
-        uses: actions/upload-artifact@v4
-        with:
-          name: app-release-apk
-          path: android/app/build/outputs/apk/release/*.apk
+    - name: audit packages
+      run: npm run audit-all
