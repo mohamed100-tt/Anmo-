@@ -1,13 +1,10 @@
-# ⚙️ Build Unsigned Android APK (React + Capacitor)
-# ملف: .github/workflows/build-apk-unsigned.yml
-
 name: Build Android APK (Unsigned)
 
 on:
   workflow_dispatch:
     inputs:
       web_dir:
-        description: 'مجلد ناتج البناء (build أو dist)'
+        description: 'مجلد ناتج البناء (مثال: build أو dist أو www)'
         required: false
         default: 'build'
 
@@ -16,17 +13,16 @@ jobs:
     runs-on: ubuntu-latest
     env:
       NODE_OPTIONS: '--max_old_space_size=4096'
-
     steps:
-      - name: 🧩 Checkout repository
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: ⚙️ Use Node.js 18
+      - name: Use Node.js 18
         uses: actions/setup-node@v4
         with:
           node-version: 18
 
-      - name: 💾 Cache node modules
+      - name: Cache node modules
         uses: actions/cache@v4
         with:
           path: ~/.npm
@@ -34,84 +30,132 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-node-
 
-      - name: 📦 Install dependencies
+      - name: Install dependencies
         run: |
-          if [ -f package-lock.json ]; then
-            npm ci
-          else
-            npm install
-          fi
+          if [ -f package-lock.json ]; then npm ci; else npm install; fi
 
-      - name: 🧱 Build web assets
+      - name: Build web assets
         run: |
-          echo "📦 Building web assets..."
-          npm run build --if-present
-          echo "Web build dir: ${{ github.event.inputs.web_dir }}"
+          echo ">> Building web assets (npm run build --if-present)"
+          npm run build --if-present || true
+          echo ">> web_dir = '${{ github.event.inputs.web_dir }}'"
+          if [ ! -d "${{ github.event.inputs.web_dir }}" ]; then
+            echo "❌ Web build directory '${{ github.event.inputs.web_dir }}' not found."
+            echo "Make sure your build command produces that directory and contains index.html."
+            ls -la || true
+            exit 1
+          fi
+          if [ ! -f "${{ github.event.inputs.web_dir }}/index.html" ]; then
+            echo "❌ index.html not found in web_dir '${{ github.event.inputs.web_dir }}'."
+            exit 1
+          fi
+          echo "✅ web assets ready."
           ls -la "${{ github.event.inputs.web_dir }}" || true
 
-      - name: ⚡ Install Capacitor core + Android
+      - name: Install matching Capacitor packages (major 7)
         run: |
-          npm install --no-save @capacitor/core @capacitor/cli @capacitor/android
+          # نثبت إصدار Major 7 (متوافق مع Capacitor 7.x). غيّر إذا تحتاج نسخة محددة.
+          npm install --no-save @capacitor/cli@^7 @capacitor/core@^7 @capacitor/android@^7
 
-      - name: 🧩 Create capacitor.config.json
+      - name: Ensure capacitor.config.json (set webDir)
         run: |
           WEBDIR="${{ github.event.inputs.web_dir }}"
-          cat > capacitor.config.json <<EOF
+          if [ -f capacitor.config.json ]; then
+            node -e "const fs=require('fs');let c=require('./capacitor.config.json');c.webDir='$WEBDIR';delete c.bundledWebRuntime;fs.writeFileSync('capacitor.config.json', JSON.stringify(c,null,2));"
+          else
+            cat > capacitor.config.json <<EOF
           {
             "appId": "com.example.app",
             "appName": "ReactApp",
             "webDir": "$WEBDIR"
           }
           EOF
+          fi
+          echo "📄 capacitor.config.json:"
           cat capacitor.config.json
 
-      - name: 🧰 Rebuild Android platform (force)
+      - name: Recreate Android platform (force clean)
         run: |
-          rm -rf android
-          echo "🧱 Rebuilding Android platform..."
+          # نمسح android القديم عشان نضمن توليد صحيح للملفات (capacitor.settings.gradle ...).
+          if [ -d android ]; then
+            echo "Removing existing android/ folder"
+            rm -rf android
+          fi
+          echo "Adding Android platform..."
           npx cap add android
-          npx cap doctor
+          echo "Running npx cap doctor to validate environment..."
+          npx cap doctor || true
           ls -la android || true
-          echo "✅ Android platform rebuilt."
 
-      - name: 🔄 Sync Capacitor
+      - name: Copy/sync web assets into Android (safe copy)
         run: |
-          npx cap sync android
-          ls -la android || true
+          WEBDIR="${{ github.event.inputs.web_dir }}"
+          echo "Syncing Capacitor (npx cap sync android)..."
+          npx cap sync android || true
+
+          # Capacitor may expect assets in android/app/src/main/assets/public or www or root assets.
+          ASSETS_DIRS=(
+            "android/app/src/main/assets/public"
+            "android/app/src/main/assets/www"
+            "android/app/src/main/assets"
+          )
+
+          for d in "${ASSETS_DIRS[@]}"; do
+            echo "Ensure $d exists..."
+            mkdir -p "$d"
+            echo "Copying webDir -> $d"
+            # copy content (not the folder itself)
+            rsync -a --delete "$WEBDIR"/ "$d"/ || cp -a "$WEBDIR"/. "$d"/ || true
+          done
+
+          # verify critical file presence
           if [ ! -f "android/capacitor.settings.gradle" ]; then
-            echo "❌ capacitor.settings.gradle missing. Android platform creation failed."
+            echo "❌ capacitor.settings.gradle missing after cap add/sync."
+            echo "Listing android/:"
+            ls -la android || true
             exit 1
           fi
-          echo "✅ capacitor.settings.gradle exists."
 
-      - name: ☕ Set up Java 17
+          # verify assets/index.html exists in at least one path
+          if [ ! -f "android/app/src/main/assets/public/index.html" ] && [ ! -f "android/app/src/main/assets/www/index.html" ] && [ ! -f "android/app/src/main/assets/index.html" ]; then
+            echo "❌ index.html not found in any android asset paths."
+            exit 1
+          fi
+
+          echo "✅ Assets copied and verified."
+
+      - name: Set up Java 17
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: 🤖 Set up Android SDK
+      - name: Set up Android SDK
         uses: android-actions/setup-android@v3
 
-      - name: 🏗️ Build unsigned APKs
+      - name: Build unsigned APKs
         working-directory: android
         run: |
-          chmod +x ./gradlew || true
-          echo "🚀 Building APKs (debug & release)..."
-          ./gradlew clean assembleDebug assembleRelease
+          if [ ! -f ./gradlew ]; then
+            echo "❌ gradlew not found in android/. Something went wrong creating the android project."
+            exit 1
+          fi
+          chmod +x ./gradlew
+          echo "🚀 Building APKs (clean assembleDebug assembleRelease)..."
+          ./gradlew clean assembleDebug assembleRelease --no-daemon
         env:
           GRADLE_OPTS: "-Dorg.gradle.jvmargs=-Xmx2g"
 
-      - name: 📋 List generated APKs
+      - name: List generated APK/AAB
         working-directory: android
         run: |
-          echo "Generated APKs:"
-          find . -type f \( -name "*.apk" -o -name "*.aab" \) -print || echo "⚠️ No APKs found."
+          echo "Listing generated artifacts:"
+          find . -type f \( -name "*.apk" -o -name "*.aab" \) -print || echo "No artifacts found."
 
-      - name: 📤 Upload APK artifacts
+      - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: android-unsigned-apks
+          name: android-unsigned-artifacts
           path: |
             android/app/build/outputs/**/*.apk
             android/app/build/outputs/**/*.aab
