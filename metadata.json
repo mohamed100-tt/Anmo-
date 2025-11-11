@@ -1,0 +1,5 @@
+{
+  "name": "Anmo",
+  "description": "An advanced anime watching application that works entirely via custom JSON sources, inspired by Tachiyomi, with a sophisticated built-in video player.",
+  "requestFramePermissions": []
+}
