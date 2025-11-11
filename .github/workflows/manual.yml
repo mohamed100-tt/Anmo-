@@ -1,2 +1,0 @@
-- name: Create ncipollo
-  uses: ncipollo/release-action@v1.20.0
