@@ -14,7 +14,6 @@ on:
 
 jobs:
   build_apk_unsigned:
-    name: Build unsigned Android APK (React + Capacitor)
     runs-on: ubuntu-latest
     env:
       NODE_OPTIONS: '--max_old_space_size=4096'
@@ -50,33 +49,38 @@ jobs:
           echo "Web build dir: ${{ github.event.inputs.web_dir }}"
           ls -la "${{ github.event.inputs.web_dir }}" || true
 
-      - name: Install Capacitor CLI & core
-        run: npm install --no-save @capacitor/cli @capacitor/core
+      - name: Install Capacitor CLI & Android
+        run: |
+          npm install --no-save @capacitor/cli @capacitor/core @capacitor/android
 
-      - name: Ensure capacitor.config.json exists
+      - name: Create or update capacitor.config.json
         run: |
           WEBDIR="${{ github.event.inputs.web_dir }}"
           if [ -f capacitor.config.json ]; then
-            node -e "const fs=require('fs');let c=require('./capacitor.config.json');c.webDir='$WEBDIR';fs.writeFileSync('capacitor.config.json', JSON.stringify(c,null,2));"
+            node -e "const fs=require('fs');let c=require('./capacitor.config.json');c.webDir='$WEBDIR';delete c.bundledWebRuntime;fs.writeFileSync('capacitor.config.json', JSON.stringify(c,null,2));"
           else
             echo "Creating capacitor.config.json..."
             cat > capacitor.config.json <<EOF
           {
             "appId": "com.example.app",
             "appName": "ReactApp",
-            "webDir": "$WEBDIR",
-            "bundledWebRuntime": false
+            "webDir": "$WEBDIR"
           }
           EOF
           fi
           cat capacitor.config.json
 
-      - name: Add Android platform & copy web assets
+      - name: Ensure Android platform exists
         run: |
           if [ ! -d android ]; then
+            echo "⚙️ Adding Android platform..."
             npx cap add android
+          else
+            echo "✅ Android platform already exists."
           fi
-          npx cap copy android --build
+
+      - name: Copy web assets
+        run: npx cap copy android --build
 
       - name: Set up Java 17
         uses: actions/setup-java@v4
@@ -84,11 +88,10 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      # ✅ التعديل المهم هنا
-      - name: Set up Android SDK (latest stable)
+      - name: Set up Android SDK (latest)
         uses: android-actions/setup-android@v3
 
-      - name: Build unsigned APK
+      - name: Build unsigned APKs
         working-directory: android
         run: |
           chmod +x ./gradlew || true
@@ -100,10 +103,10 @@ jobs:
         working-directory: android
         run: find . -type f \( -name "*.apk" -o -name "*.aab" \) -print
 
-      - name: Upload APK/AAB artifacts
+      - name: Upload APK artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: android-unsigned-artifacts
+          name: android-unsigned-apks
           path: |
             android/app/build/outputs/**/*.apk
             android/app/build/outputs/**/*.aab
