@@ -119,7 +119,7 @@ jobs:
           cache: 'gradle' # تحسين: استخدام cache تلقائي لـ Gradle [[20]]
 
       - name: 📱 تهيئة Android SDK
-        uses: android-actions/setup-android@v2
+        uses: android-actions/setup-android@v4
         with:
           api-level: 33
           build-tools: '33.0.2'
