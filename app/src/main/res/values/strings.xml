@@ -1,0 +1,10 @@
+
+<resources>
+    <string name="app_name">Anmo</string>
+    <string name="home">الرئيسية</string>
+    <string name="search">بحث</string>
+    <string name="downloads">التنزيلات</string>
+    <string name="sources">المصادر</string>
+    <string name="settings">الإعدادات</string>
+    <string name="anime_cover_image">صورة غلاف الأنمي</string>
+</resources>

@@ -1,5 +1,4 @@
-
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { createRoot } from 'react-dom/client';
 
 // --- TYPE DEFINITIONS ---
@@ -31,6 +30,7 @@ interface SourceData {
         version: string;
         author: string;
         updateDate: string;
+        url?: string; // For updates
     };
     animeList: Anime[];
 }
@@ -45,19 +45,19 @@ type ActiveView = 'home' | 'search' | 'downloads' | 'sources' | 'settings';
 
 const sampleData: SourceData = {
   "metadata": {
-    "sourceName": "أنمي المصدر",
+    "sourceName": "مصدر الأنمي",
     "version": "1.0",
-    "author": "لوسيفر",
+    "author": "Lucifer",
     "updateDate": "2024-07-20"
   },
   "animeList": [
     {
       "id": "1",
-      "name": "هجوم العمالقة",
+      "name": "Attack on Titan",
       "image": "https://m.media-amazon.com/images/M/MV5BNDFjYTIxMjctYTQ2ZC00OGQ4LWE3OGYtNDdiMzNiNDZlMDAwXkEyXkFqcGdeQXVyNzI3NjY3NjQ@._V1_FMjpg_UX1000_.jpg",
-      "description": "بعد أن يتم تدمير مسقط رأسه وقتل والدته، يتعهد الشاب إرين ييغر بتطهير الأرض من جبابرة البشر الذين أوصلوا البشرية إلى حافة الانقراض.",
+      "description": "بعد تدمير مسقط رأسه ومقتل والدته، يتعهد الشاب إرين ييغر بتطهير الأرض من العمالقة البشرية العملاقة التي أوصلت البشرية إلى حافة الانقراض.",
       "rating": "9.1",
-      "genres": ["أكشن", "دراما", "فانتازيا"],
+      "genres": ["أكشن", "دراما", "خيال"],
       "year": "2013",
       "status": "مكتمل",
       "totalEpisodes": 87,
@@ -78,19 +78,19 @@ const sampleData: SourceData = {
     },
     {
       "id": "2",
-      "name": "قاتل الشياطين",
+      "name": "Demon Slayer",
       "image": "https://m.media-amazon.com/images/M/MV5BZjYwMmI4ZWItNDBlMy00YjIzLWE0NzYtMWM3ZDc4NTEyMmIzXkEyXkFqcGdeQXVyMTM1MTE1NDM1._V1_FMjpg_UX1000_.jpg",
-      "description": "أصبح صبي طيب القلب يبيع الفحم من أجل لقمة العيش قاتلًا للشياطين بعد مقتل عائلته على يد شيطان، وأخته الصغرى نيزوكو تحولت إلى واحدة.",
+      "description": "فتى طيب القلب يبيع الفحم لكسب لقمة العيش يصبح قاتل شياطين بعد أن قُتلت عائلته على يد شيطان، وتحولت أخته الصغرى نيزوكو إلى واحدة منهم.",
       "rating": "8.7",
-      "genres": ["أكشن", "مغامرات", "خارق للطبيعة"],
+      "genres": ["أكشن", "مغامرة", "خارق للطبيعة"],
       "year": "2019",
       "status": "مستمر",
     },
     {
       "id": "3",
-      "name": "مذكرة الموت",
+      "name": "Death Note",
       "image": "https://m.media-amazon.com/images/M/MV5BODkzMjhjYTQtYmQyOS00NmZlLTg3Y2UtYjkzN2JkNmRjY2FhXkEyXkFqcGdeQXVyNTM4MDQ5MDc@._V1_FMjpg_UX1000_.jpg",
-      "description": "طالب في المدرسة الثانوية يكتشف دفترًا غامضًا يمنحه القدرة على قتل أي شخص بمجرد كتابة اسمه فيه.",
+      "description": "طالب في المدرسة الثانوية يكتشف مذكرة غامضة تمنحه القدرة على قتل أي شخص يكتب اسمه فيها.",
       "rating": "9.0",
       "genres": ["غموض", "نفسي", "إثارة"],
       "year": "2006",
@@ -98,31 +98,31 @@ const sampleData: SourceData = {
     },
     {
       "id": "4",
-      "name": "ون بيس",
+      "name": "One Piece",
       "image": "https://m.media-amazon.com/images/M/MV5BODZmYjMwNzEtNzVhNC00ZTRmLWI0MDktYWNhxZDY2ZmQxNDIyXkEyXkFqcGdeQXVyMTxMNDE1NTg@._V1_FMjpg_UX1000_.jpg",
-      "description": "يتبع مغامرات مونكي دي لوفي وطاقمه من قراصنة قبعة القش في بحثهم عن الكنز النهائي المعروف باسم 'ون بيس'.",
+      "description": "يتبع مغامرات مونكي دي لوفي وطاقم قبعة القش في سعيهم للعثور على الكنز النهائي المعروف باسم 'ون بيس'.",
       "rating": "8.9",
-      "genres": ["أكشن", "مغامرات", "كوميديا"],
+      "genres": ["أكشن", "مغامرة", "كوميديا"],
       "year": "1999",
       "status": "مستمر",
     },
     {
         "id": "5",
-        "name": "جوجوتسو كايسن",
+        "name": "Jujutsu Kaisen",
         "image": "https://m.media-amazon.com/images/M/MV5BNGY4MTg3NzgtMmFkZi00NTg5LWExMmEtMWI3YzI1ODdmMWQ1XkEyXkFqcGdeQXVyMjQwMDg0Ng@@._V1_FMjpg_UX1000_.jpg",
-        "description": "صبي يبتلع تعويذة ملعونة - إصبع شيطان - ويصبح ملعونًا بنفسه. يدخل مدرسة للسحرة لينقذ نفسه.",
+        "description": "فتى يبتلع تعويذة ملعونة - إصبع شيطان - ويصبح ملعونًا بنفسه. يدخل مدرسة للسحرة لإنقاذ نفسه.",
         "rating": "8.5",
-        "genres": ["أكشن", "خارق للطبيعة", "فانتازيا"],
+        "genres": ["أكشن", "خارق للطبيعة", "خيال"],
         "year": "2020",
         "status": "مستمر",
     },
     {
         "id": "6",
-        "name": "ناروتو شيبودن",
+        "name": "Naruto Shippuden",
         "image": "https://m.media-amazon.com/images/M/MV5BZGFiMWFhNDAtMDBjYS00NmQ2LTk2MjYtMzc2ZDIxYmY4ZjkyXkEyXkFqcGdeQXVyNTA4NzY1MzY@._V1_FMjpg_UX1000_.jpg",
-        "description": "يعود ناروتو أوزوماكي إلى قرية الورق المخفية بعد عامين ونصف من التدريب. ويقرر أن يجعل حلمه في أن يصبح الهوكاجي التالي حقيقة.",
+        "description": "يعود ناروتو أوزوماكي إلى قرية الورق المخفية بعد عامين ونصف من التدريب. يقرر تحقيق حلمه في أن يصبح الهوكاجي التالي.",
         "rating": "8.7",
-        "genres": ["أكشن", "مغامرات", "فنون قتالية"],
+        "genres": ["أكشن", "مغامرة", "فنون قتالية"],
         "year": "2007",
         "status": "مكتمل",
     }
@@ -132,7 +132,7 @@ const sampleData: SourceData = {
 const Header = () => {
     return(
       <header style={styles.header}>
-        <h1 style={styles.logo}>Anmo | أنمى</h1>
+        <h1 style={styles.logo} className="logo-font">Anmo</h1>
       </header>
     );
 };
@@ -158,8 +158,8 @@ const BottomNavBar = ({ activeView, onHomeClick, onSearchClick, onDownloadsClick
                         aria-label={item.label}
                         title={item.label}
                     >
-                        <div style={{ ...styles.icon, ...(isActive ? styles.bottomNavIconActive : styles.bottomNavIcon) }}>
-                            {item.icon}
+                        <div style={{ ...styles.iconContainer, ...(isActive ? styles.bottomNavIconActiveContainer : {}) }}>
+                           {item.icon}
                         </div>
                         <span style={styles.bottomNavLabel}>{item.label}</span>
                     </button>
@@ -178,7 +178,7 @@ const SearchBar = ({ query, onQueryChange, onClose }) => (
             value={query}
             onChange={(e) => onQueryChange(e.target.value)}
             autoFocus
-            aria-label="Search for anime"
+            aria-label="البحث عن أنمي"
         />
         <button onClick={onClose} style={styles.searchCloseButton} aria-label="إغلاق البحث" title="إغلاق البحث">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" style={{width: '24px', height: '24px'}}>
@@ -192,7 +192,7 @@ const AnimeCard: React.FC<{ anime: Anime, onClick: () => void }> = ({ anime, onC
   <div style={styles.card} className="card" tabIndex={0} role="button" aria-label={`عرض تفاصيل ${anime.name}`} onClick={onClick}>
     <img src={anime.image} alt={anime.name} style={styles.cardImage} className="cardImage" loading="lazy" />
     <div style={styles.cardOverlay}>
-      <h3 style={styles.cardTitle}>{anime.name}</h3>
+      <h3 style={{...styles.cardTitle, ...styles.logoFont}}>{anime.name}</h3>
       <div style={styles.cardInfo}>
         <span style={styles.cardRating}>
             ⭐ {anime.rating}
@@ -204,7 +204,7 @@ const AnimeCard: React.FC<{ anime: Anime, onClick: () => void }> = ({ anime, onC
 );
 
 const FilterBar = () => {
-    const filters = ['آخر الإضافات', 'الأكثر مشاهدة', 'التصنيفات'];
+    const filters = ['الأحدث', 'الأكثر مشاهدة', 'الأنواع'];
     const [active, setActive] = useState(filters[0]);
 
     return (
@@ -231,11 +231,14 @@ const AddSourceForm = ({ onAdd, onCancel }) => {
     const [loading, setLoading] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
-    const validateAndAddSource = (sourceText) => {
+    const validateAndAddSource = (sourceText: string, sourceUrl?: string) => {
         try {
-            const data = JSON.parse(sourceText);
+            const data: SourceData = JSON.parse(sourceText);
             if (!data.metadata || !data.metadata.sourceName || !Array.isArray(data.animeList)) {
                 throw new Error("بنية JSON غير صالحة. تأكد من وجود 'metadata' و 'animeList'.");
+            }
+             if (sourceUrl) {
+                data.metadata.url = sourceUrl;
             }
             onAdd(data);
             setInputValue('');
@@ -252,10 +255,10 @@ const AddSourceForm = ({ onAdd, onCancel }) => {
         try {
             const response = await fetch(inputValue);
             if (!response.ok) {
-                throw new Error(`فشل جلب المصدر. الحالة: ${response.status}`);
+                throw new Error(`فشل في جلب المصدر. الحالة: ${response.status}`);
             }
             const text = await response.text();
-            validateAndAddSource(text);
+            validateAndAddSource(text, inputValue);
         } catch (e) {
             setError(`خطأ في الشبكة أو CORS: ${e.message}`);
         } finally {
@@ -315,7 +318,7 @@ const AddSourceForm = ({ onAdd, onCancel }) => {
     );
 };
 
-const SourcesModal = ({ isOpen, onClose, sources, onAdd, onDelete, onMerge, onEdit, onCreate }) => {
+const SourcesModal = ({ isOpen, onClose, sources, onAdd, onDelete, onMerge, onEdit, onCreate, updatesAvailable, onUpdate, onCheckForUpdates }) => {
     const [isAdding, setIsAdding] = useState(false);
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
     const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
@@ -387,16 +390,21 @@ const SourcesModal = ({ isOpen, onClose, sources, onAdd, onDelete, onMerge, onEd
 
     return (
         <>
-            <div style={styles.modalBackdrop} onClick={onClose}>
-                <div style={styles.modalContent} onClick={e => e.stopPropagation()}>
+            <div style={styles.modalBackdrop} className="modal-backdrop">
+                <div style={styles.modalContent} className="modal-content" onClick={e => e.stopPropagation()}>
                     <div style={styles.modalHeader}>
-                        <h2>إدارة المصادر</h2>
-                        <button onClick={onClose} style={styles.searchCloseButton}>
-                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" style={{width: '24px', height: '24px'}}><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"></path></svg>
-                        </button>
+                        <h2 className="logo-font">إدارة المصادر</h2>
+                         <div style={{display: 'flex', gap: '8px'}}>
+                            <button onClick={onCheckForUpdates} style={styles.modalButtonSecondary}>التحقق من التحديثات</button>
+                            <button onClick={onClose} style={styles.searchCloseButton}>
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" style={{width: '24px', height: '24px'}}><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"></path></svg>
+                            </button>
+                        </div>
                     </div>
                     <ul style={styles.sourceList}>
-                        {sources.map(source => (
+                        {sources.map(source => {
+                            const isUpdateAvailable = !!updatesAvailable[source.metadata.sourceName];
+                            return (
                             <li key={source.metadata.sourceName} style={{...styles.sourceListItem, ...(selectedIds.has(source.metadata.sourceName) ? styles.sourceListItemSelected : {})}}>
                                 <input
                                     type="checkbox"
@@ -408,11 +416,13 @@ const SourcesModal = ({ isOpen, onClose, sources, onAdd, onDelete, onMerge, onEd
                                 <span id={`source-name-${source.metadata.sourceName}`} style={{ flex: 1, marginRight: '12px' }}>
                                     {source.metadata.sourceName}
                                 </span>
-                                <div style={{display: 'flex', gap: '8px'}}>
+                                <div style={{display: 'flex', gap: '8px', alignItems: 'center'}}>
+                                    {isUpdateAvailable && <span style={styles.updateAvailableBadge}>تحديث متاح!</span>}
+                                    {isUpdateAvailable && <button onClick={() => onUpdate(source)} style={{...styles.modalButtonSecondary, color: 'var(--secondary-color)', borderColor: 'var(--secondary-color)'}}>تحديث</button>}
                                     <button onClick={() => onEdit(source)} style={styles.modalButtonSecondary}>تعديل</button>
                                 </div>
                             </li>
-                        ))}
+                        )})}
                     </ul>
 
                     {selectedIds.size > 0 && (
@@ -438,18 +448,18 @@ const SourcesModal = ({ isOpen, onClose, sources, onAdd, onDelete, onMerge, onEd
                 onClose={() => setIsConfirmingDelete(false)}
                 onConfirm={confirmDelete}
                 title="تأكيد الحذف"
-                message={`هل أنت متأكد أنك تريد حذف ${selectedIds.size} مصدر (مصادر) مختارة؟ لا يمكن التراجع عن هذا الإجراء.`}
+                message={`هل أنت متأكد من رغبتك في حذف المصادر المحددة (${selectedIds.size})؟ لا يمكن التراجع عن هذا الإجراء.`}
             />
         </>
     );
 };
 
-const SettingsModal = ({ isOpen, onClose, settings, onSettingsChange, onDeveloperInfoClick }) => {
+const SettingsModal = ({ isOpen, onClose, settings, onSettingsChange, onDeveloperInfoClick, onLogout }) => {
     if (!isOpen) return null;
 
     const SettingSection = ({ title, children }) => (
         <div style={styles.settingsSection}>
-            <h3 style={styles.settingsSectionTitle}>{title}</h3>
+            <h3 style={{...styles.settingsSectionTitle, ...styles.logoFont}}>{title}</h3>
             <div style={styles.settingsSectionContent}>
                 {children}
             </div>
@@ -457,10 +467,10 @@ const SettingsModal = ({ isOpen, onClose, settings, onSettingsChange, onDevelope
     );
     
     return (
-        <div style={styles.modalBackdrop} onClick={onClose}>
-            <div style={styles.modalContent} onClick={e => e.stopPropagation()}>
+        <div style={styles.modalBackdrop} className="modal-backdrop" onClick={onClose}>
+            <div style={styles.modalContent} className="modal-content" onClick={e => e.stopPropagation()}>
                 <div style={styles.modalHeader}>
-                    <h2>الإعدادات</h2>
+                    <h2 className="logo-font">الإعدادات</h2>
                     <button onClick={onClose} style={styles.searchCloseButton}>
                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" style={{width: '24px', height: '24px'}}><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"></path></svg>
                     </button>
@@ -499,7 +509,12 @@ const SettingsModal = ({ isOpen, onClose, settings, onSettingsChange, onDevelope
                         كبير
                     </button>
                 </SettingSection>
-                 <SettingSection title="حول التطبيق">
+                <SettingSection title="الحساب">
+                    <button onClick={onLogout} style={{...styles.filterButton, ...styles.modalButtonDanger}}>
+                        تسجيل الخروج
+                    </button>
+                </SettingSection>
+                 <SettingSection title="حول">
                     <button onClick={onDeveloperInfoClick} style={styles.filterButton}>
                         معلومات المطور
                     </button>
@@ -513,10 +528,10 @@ const DeveloperInfoModal = ({ isOpen, onClose }) => {
     if (!isOpen) return null;
 
     return (
-        <div style={styles.modalBackdrop} onClick={onClose}>
-            <div style={{...styles.modalContent, maxWidth: '450px', zIndex: 1100}} onClick={e => e.stopPropagation()}>
+        <div style={styles.modalBackdrop} className="modal-backdrop" onClick={onClose}>
+            <div style={{...styles.modalContent, maxWidth: '450px', zIndex: 1100}} className="modal-content" onClick={e => e.stopPropagation()}>
                 <div style={styles.modalHeader}>
-                    <h2>معلومات المطور</h2>
+                    <h2 className="logo-font">معلومات المطور</h2>
                     <button onClick={onClose} style={styles.searchCloseButton}>
                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" style={{width: '24px', height: '24px'}}><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"></path></svg>
                     </button>
@@ -528,10 +543,10 @@ const DeveloperInfoModal = ({ isOpen, onClose }) => {
                     </div>
                     <div style={styles.developerInfoItem}>
                         <span style={styles.developerInfoLabel}>اللقب:</span>
-                        <span>لوسيفر</span>
+                        <span>Lucifer</span>
                     </div>
                     <div style={styles.developerInfoItem}>
-                        <span style={styles.developerInfoLabel}>رقم الهاتف:</span>
+                        <span style={styles.developerInfoLabel}>الهاتف:</span>
                         <span>0697822311</span>
                     </div>
                 </div>
@@ -608,7 +623,7 @@ const AnimeDetail: React.FC<{ anime: Anime, onBack: () => void, downloads: any, 
             <header style={styles.detailHeaderContainer}>
                 <img src={anime.image} alt="" style={styles.detailBannerImage} aria-hidden="true" />
                 <div style={styles.detailBannerOverlay}></div>
-                <button onClick={onBack} style={styles.backButton} className="backButton" aria-label="العودة إلى القائمة الرئيسية" title="العودة">
+                <button onClick={onBack} style={styles.backButton} className="backButton" aria-label="العودة إلى القائمة الرئيسية" title="رجوع">
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" style={{width: '24px', height: '24px', transform: 'scaleX(-1)'}}>
                         <path d="M13.293 6.293 7.586 12l5.707 5.707 1.414-1.414L10.414 12l4.293-4.293z"></path>
                     </svg>
@@ -618,11 +633,11 @@ const AnimeDetail: React.FC<{ anime: Anime, onBack: () => void, downloads: any, 
                 <div style={styles.detailPrimaryInfo} className="detailPrimaryInfo">
                     <img src={anime.image} alt={anime.name} style={styles.detailPosterImage} />
                     <div style={styles.detailMetaContainer}>
-                        <h2 style={styles.detailTitle}>{anime.name}</h2>
+                        <h2 style={{...styles.detailTitle, ...styles.logoFont}}>{anime.name}</h2>
                         <div style={styles.detailMeta}>
                             <span style={styles.detailMetaItem}>⭐ {anime.rating}</span>
                             <span style={styles.detailMetaItem}>{anime.year}</span>
-                            <span style={styles.detailMetaItem}>{anime.status}</span>
+                            <span style={styles.detailMetaItem}>{anime.status === 'Ongoing' ? 'مستمر' : 'مكتمل'}</span>
                             {anime.totalEpisodes && <span style={styles.detailMetaItem}>{anime.totalEpisodes} حلقة</span>}
                         </div>
                         <div style={styles.genreContainer}>
@@ -632,12 +647,12 @@ const AnimeDetail: React.FC<{ anime: Anime, onBack: () => void, downloads: any, 
                 </div>
                 
                 <section style={styles.detailSection}>
-                    <h3 style={styles.sectionTitle}>القصة</h3>
+                    <h3 style={{...styles.sectionTitle, ...styles.logoFont}}>القصة</h3>
                     <p style={styles.detailDescription}>{anime.description}</p>
                 </section>
 
                 <section style={styles.detailSection}>
-                    <h3 style={styles.sectionTitle}>الحلقات</h3>
+                    <h3 style={{...styles.sectionTitle, ...styles.logoFont}}>الحلقات</h3>
                     {anime.episodes && anime.episodes.length > 0 ? (
                         <ul style={styles.episodeList}>
                             {anime.episodes.map(ep => {
@@ -666,7 +681,7 @@ const AnimeDetail: React.FC<{ anime: Anime, onBack: () => void, downloads: any, 
                             )})}
                         </ul>
                     ) : (
-                        <p style={styles.noResults}>لا توجد حلقات متاحة حاليًا.</p>
+                        <p style={styles.noResults}>لا توجد حلقات متاحة بعد.</p>
                     )}
                 </section>
             </div>
@@ -679,7 +694,7 @@ const createBlankSource = (): SourceData => ({
     metadata: {
         sourceName: '',
         version: '1.0',
-        author: 'Anmo Editor',
+        author: 'محرر Anmo',
         updateDate: new Date().toISOString().split('T')[0],
     },
     animeList: [],
@@ -693,7 +708,7 @@ const createBlankAnime = (): Anime => ({
     rating: '',
     genres: [],
     year: '',
-    status: 'مستمر',
+    status: 'Ongoing',
     episodes: [],
 });
 
@@ -709,7 +724,9 @@ const ConfirmationDialog: React.FC<{
     onConfirm: () => void;
     title: string;
     message: string;
-}> = ({ isOpen, onClose, onConfirm, title, message }) => {
+    confirmText?: string;
+    confirmButtonStyle?: React.CSSProperties;
+}> = ({ isOpen, onClose, onConfirm, title, message, confirmText = 'تأكيد الحذف', confirmButtonStyle = styles.modalButtonDanger }) => {
     if (!isOpen) return null;
 
     useEffect(() => {
@@ -723,15 +740,15 @@ const ConfirmationDialog: React.FC<{
     }, [onClose]);
 
     return (
-        <div style={styles.modalBackdrop} onClick={onClose}>
-            <div style={{...styles.modalContent, maxWidth: '450px', zIndex: 1300}} onClick={e => e.stopPropagation()}>
+        <div style={styles.modalBackdrop} className="modal-backdrop" onClick={onClose}>
+            <div style={{...styles.modalContent, maxWidth: '450px', zIndex: 1300}} className="modal-content" onClick={e => e.stopPropagation()}>
                 <div style={styles.modalHeader}>
-                    <h2 style={{margin: 0}}>{title}</h2>
+                    <h2 style={{margin: 0}} className="logo-font">{title}</h2>
                 </div>
                 <p style={{color: 'var(--text-secondary-color)', lineHeight: 1.6, margin: '16px 0'}}>{message}</p>
                 <div style={{...styles.modalFooter, borderTop: 'none', paddingTop: 0, justifyContent: 'flex-end'}}>
                     <button onClick={onClose} style={{...styles.modalButton, ...styles.modalButtonSecondary}}>إلغاء</button>
-                    <button onClick={onConfirm} style={{...styles.modalButton, ...styles.modalButtonDanger}}>تأكيد الحذف</button>
+                    <button onClick={onConfirm} style={{...styles.modalButton, ...confirmButtonStyle}}>{confirmText}</button>
                 </div>
             </div>
         </div>
@@ -778,6 +795,26 @@ const SourceEditor = ({ initialSource, onSave, onCancel }) => {
         }
         onSave(source, originalName);
     };
+    
+    const handleExport = () => {
+        if (!source.metadata.sourceName.trim()) {
+            alert("يرجى إدخال اسم للمصدر قبل التصدير.");
+            return;
+        }
+
+        const jsonString = JSON.stringify(source, null, 2);
+        const blob = new Blob([jsonString], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        // Sanitize filename
+        const fileName = `anmo_source_${source.metadata.sourceName.replace(/[\s/\\?%*:|"<>]/g, '_')}.json`;
+        link.download = fileName;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+    };
 
     const AnimeForm = ({ anime, index, onChange }) => {
         const handleFieldChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
@@ -809,16 +846,16 @@ const SourceEditor = ({ initialSource, onSave, onCancel }) => {
                     <input name="name" value={anime.name} onChange={handleFieldChange} placeholder="اسم الأنمي" style={styles.modalInput} />
                     <input name="image" value={anime.image} onChange={handleFieldChange} placeholder="رابط الصورة" style={styles.modalInput} />
                     <input name="rating" value={anime.rating} onChange={handleFieldChange} placeholder="التقييم" style={styles.modalInput} />
-                    <input name="year" value={anime.year} onChange={handleFieldChange} placeholder="سنة الإصدار" style={styles.modalInput} />
-                    <input name="genres" value={anime.genres.join(', ')} onChange={handleFieldChange} placeholder="التصنيفات (مفصولة بفاصلة)" style={styles.modalInput} />
+                    <input name="year" value={anime.year} onChange={handleFieldChange} placeholder="السنة" style={styles.modalInput} />
+                    <input name="genres" value={anime.genres.join(', ')} onChange={handleFieldChange} placeholder="الأنواع (مفصولة بفاصلة)" style={styles.modalInput} />
                     <select name="status" value={anime.status} onChange={handleFieldChange} style={styles.modalInput}>
-                        <option value="مستمر">مستمر</option>
-                        <option value="مكتمل">مكتمل</option>
+                        <option value="Ongoing">مستمر</option>
+                        <option value="Completed">مكتمل</option>
                     </select>
                 </div>
                 <textarea name="description" value={anime.description} onChange={handleFieldChange} placeholder="الوصف" style={{...styles.modalInput, gridColumn: '1 / -1', minHeight: '80px'}} />
                 
-                <h4 style={styles.editorSubHeader}>الحلقات</h4>
+                <h4 style={{...styles.editorSubHeader, ...styles.logoFont}}>الحلقات</h4>
                 <div style={{display: 'flex', flexDirection: 'column', gap: '8px'}}>
                     {(anime.episodes || []).map((ep, epIndex) => (
                         <div key={epIndex} style={styles.episodeEditorItem}>
@@ -839,10 +876,11 @@ const SourceEditor = ({ initialSource, onSave, onCancel }) => {
             <div style={styles.editorBackdrop}>
                 <div style={styles.editorContent}>
                     <header style={styles.editorHeader}>
-                        <h2>{initialSource ? 'تعديل المصدر' : 'إنشاء مصدر جديد'}</h2>
-                        <div>
+                        <h2 className="logo-font">{initialSource ? 'تعديل المصدر' : 'إنشاء مصدر جديد'}</h2>
+                        <div style={{display: 'flex', gap: '10px'}}>
                             <button onClick={onCancel} style={styles.modalButtonSecondary}>إلغاء</button>
-                            <button onClick={handleSave} style={{...styles.modalButton, marginRight: '10px'}}>حفظ المصدر</button>
+                            <button onClick={handleExport} style={styles.modalButtonSecondary}>تصدير</button>
+                            <button onClick={handleSave} style={styles.modalButton}>حفظ المصدر</button>
                         </div>
                     </header>
                     <div style={styles.editorMeta}>
@@ -868,7 +906,7 @@ const SourceEditor = ({ initialSource, onSave, onCancel }) => {
                 onClose={() => setAnimeToDelete(null)}
                 onConfirm={confirmRemoveAnime}
                 title="تأكيد حذف الأنمي"
-                message={`هل أنت متأكد أنك تريد حذف الأنمي "${animeToDelete?.name}"؟ لا يمكن التراجع عن هذا الإجراء.`}
+                message={`هل أنت متأكد من رغبتك في حذف الأنمي "${animeToDelete?.name}"؟ لا يمكن التراجع عن هذا الإجراء.`}
             />
         </>
     );
@@ -879,9 +917,6 @@ const DownloadsModal = ({ isOpen, onClose, downloads, onPlay, onDelete, onClearA
 
     const [isConfirmingClear, setIsConfirmingClear] = useState(false);
 
-    // FIX: Explicitly type 'acc' and 'download' as 'any' to resolve type inference issues.
-    // 'download' was inferred as 'unknown' or '{}', causing property access errors.
-    // 'acc' was inferred as '{}' from the initial value, preventing dynamic property assignment.
     const downloadedAnime = Object.values(downloads).reduce((acc: any, download: any) => {
         if(download.status === 'downloaded') {
             const { anime, episode } = download;
@@ -899,10 +934,10 @@ const DownloadsModal = ({ isOpen, onClose, downloads, onPlay, onDelete, onClearA
 
     return (
        <>
-            <div style={styles.modalBackdrop} onClick={onClose}>
-                <div style={styles.modalContent} onClick={e => e.stopPropagation()}>
+            <div style={styles.modalBackdrop} className="modal-backdrop" onClick={onClose}>
+                <div style={styles.modalContent} className="modal-content" onClick={e => e.stopPropagation()}>
                     <div style={styles.modalHeader}>
-                        <h2>التنزيلات</h2>
+                        <h2 className="logo-font">التنزيلات</h2>
                         <button onClick={onClose} style={styles.searchCloseButton}>
                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" style={{width: '24px', height: '24px'}}><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"></path></svg>
                         </button>
@@ -914,7 +949,7 @@ const DownloadsModal = ({ isOpen, onClose, downloads, onPlay, onDelete, onClearA
                         <div style={styles.downloadedList}>
                             {Object.values(downloadedAnime).map((anime: any) => (
                                 <div key={anime.id} style={styles.downloadedAnimeSection}>
-                                    <h3 style={styles.downloadedAnimeTitle}>{anime.name}</h3>
+                                    <h3 style={{...styles.downloadedAnimeTitle, ...styles.logoFont}}>{anime.name}</h3>
                                     <ul style={styles.episodeList}>
                                         {anime.downloadedEpisodes.map(ep => (
                                             <li key={ep.number} style={styles.episodeItem}>
@@ -923,7 +958,7 @@ const DownloadsModal = ({ isOpen, onClose, downloads, onPlay, onDelete, onClearA
                                                     <span style={styles.episodeTitle}>{ep.title}</span>
                                                 </div>
                                                 <button onClick={() => handleDelete(anime.id, ep.number)} style={{...styles.iconButton, ...styles.downloadDeleteButton}}>
-                                                    <svg style={styles.icon} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"></path></svg>
+                                                    <svg style={styles.icon} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-l-1h-5l-1 1H5v2h14V4z"></path></svg>
                                                 </button>
                                             </li>
                                         ))}
@@ -945,11 +980,64 @@ const DownloadsModal = ({ isOpen, onClose, downloads, onPlay, onDelete, onClearA
                 onClose={() => setIsConfirmingClear(false)}
                 onConfirm={() => { onClearAll(); setIsConfirmingClear(false); }}
                 title="تأكيد المسح"
-                message="هل أنت متأكد أنك تريد حذف جميع الحلقات التي تم تنزيلها؟ لا يمكن التراجع عن هذا الإجراء."
+                message="هل أنت متأكد من رغبتك في حذف جميع الحلقات التي تم تنزيلها؟ لا يمكن التراجع عن هذا الإجراء."
             />
        </>
     );
 };
+
+const LoginScreen = ({ onLogin, onSkip }) => {
+    const [email, setEmail] = useState('');
+    const [password, setPassword] = useState('');
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState('');
+
+    const handleLoginClick = () => {
+        if (!email || !password) {
+            setError('الرجاء إدخال البريد الإلكتروني وكلمة المرور');
+            return;
+        }
+        setLoading(true);
+        setError('');
+        // Mock API call
+        setTimeout(() => {
+            onLogin();
+        }, 1000);
+    };
+
+    return (
+        <div style={styles.loginContainer}>
+            <div style={styles.loginBox}>
+                <h1 style={{...styles.logo, fontSize: '3rem'}} className="logo-font">Anmo</h1>
+                <h2 style={{...styles.loginTitle, ...styles.logoFont}}>تسجيل الدخول</h2>
+                {error && <p style={styles.errorMessage}>{error}</p>}
+                <input
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="البريد الإلكتروني"
+                    style={styles.modalInput}
+                    disabled={loading}
+                />
+                <input
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="كلمة المرور"
+                    style={styles.modalInput}
+                    disabled={loading}
+                />
+                <button onClick={handleLoginClick} disabled={loading} style={{...styles.modalButton, width: '100%', marginTop: '10px'}}>
+                    {loading ? '...جاري الدخول' : 'تسجيل الدخول'}
+                </button>
+                <button onClick={onSkip} disabled={loading} style={{...styles.modalButton, ...styles.modalButtonSecondary, width: '100%', marginTop: '8px' }}>
+                    تخطي والدخول كضيف
+                </button>
+            </div>
+        </div>
+    );
+};
+
 
 const DB_NAME = 'anmo-downloads';
 const STORE_NAME = 'episodes';
@@ -1036,6 +1124,44 @@ const App = () => {
   const [playingDownloadedEpisode, setPlayingDownloadedEpisode] = useState<{url: string, title: string} | null>(null);
   const dbRef = useRef<IDBDatabase | null>(null);
   const [activeView, setActiveView] = useState<ActiveView>('home');
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [appInitialized, setAppInitialized] = useState(false);
+  const [updatesAvailable, setUpdatesAvailable] = useState<Record<string, SourceData>>({});
+  const [sourceToUpdate, setSourceToUpdate] = useState<SourceData | null>(null);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  const checkForUpdates = useCallback(async (currentSources: SourceData[]) => {
+      const sourcesWithUrls = currentSources.filter(s => s.metadata.url);
+      if (sourcesWithUrls.length === 0) return;
+
+      console.log(`Checking for updates on ${sourcesWithUrls.length} sources...`);
+      const updates: Record<string, SourceData> = {};
+      
+      for (const source of sourcesWithUrls) {
+          try {
+              const response = await fetch(source.metadata.url!, { cache: "no-store" });
+              if (!response.ok) continue;
+              
+              const remoteSource: SourceData = await response.json();
+
+              if (!remoteSource.metadata?.updateDate || !remoteSource.metadata?.sourceName) {
+                  continue;
+              }
+              
+              if (new Date(remoteSource.metadata.updateDate) > new Date(source.metadata.updateDate)) {
+                  remoteSource.metadata.url = source.metadata.url; // Preserve original URL
+                  updates[source.metadata.sourceName] = remoteSource;
+              }
+          } catch (error) {
+              console.error(`Failed to check for updates for ${source.metadata.sourceName}:`, error);
+          }
+      }
+
+      if (Object.keys(updates).length > 0) {
+          console.log("Updates found:", Object.keys(updates));
+          setUpdatesAvailable(prev => ({ ...prev, ...updates }));
+      }
+  }, []);
 
   // --- DB and Initial Load ---
   useEffect(() => {
@@ -1054,30 +1180,57 @@ const App = () => {
     });
 
     try {
-        const savedSources = localStorage.getItem('anmo-sources');
-        if (savedSources) {
-            setSources(JSON.parse(savedSources));
-        } else {
-            setSources([sampleData]);
-        }
+        const savedSourcesText = localStorage.getItem('anmo-sources');
+        const initialSources = savedSourcesText ? JSON.parse(savedSourcesText) : [sampleData];
+        setSources(initialSources);
         
+        if (navigator.onLine) {
+            checkForUpdates(initialSources);
+        }
+
         const savedSettings = localStorage.getItem('anmo-settings');
         if(savedSettings) {
             setSettings(JSON.parse(savedSettings));
         }
+        
+        const loggedInStatus = localStorage.getItem('anmo-loggedIn');
+        const isGuest = localStorage.getItem('anmo-isGuest');
+        if (loggedInStatus === 'true' || isGuest === 'true') {
+            setIsLoggedIn(true);
+        }
+
     } catch (error) {
         console.error("Failed to load data from localStorage", error);
         setSources([sampleData]);
+    } finally {
+        setAppInitialized(true);
     }
-  }, []);
+  }, [checkForUpdates]);
+  
+  // --- Online Status Change Handler ---
+  useEffect(() => {
+    const handleOnline = () => {
+        setToastMessage("تم استعادة الاتصال. جارٍ التحقق من التحديثات...");
+        checkForUpdates(sources);
+        setTimeout(() => setToastMessage(null), 4000);
+    };
+
+    window.addEventListener('online', handleOnline);
+
+    return () => {
+        window.removeEventListener('online', handleOnline);
+    };
+  }, [sources, checkForUpdates]);
+
 
   useEffect(() => {
+      if (!appInitialized) return;
       if (sources.length > 0) {
           localStorage.setItem('anmo-sources', JSON.stringify(sources));
       } else {
           localStorage.removeItem('anmo-sources');
       }
-  }, [sources]);
+  }, [sources, appInitialized]);
 
   useEffect(() => {
       localStorage.setItem('anmo-settings', JSON.stringify(settings));
@@ -1085,6 +1238,24 @@ const App = () => {
       document.body.classList.add(`theme-${settings.theme}`);
       document.body.classList.add(`font-size-${settings.fontSize}`);
   }, [settings]);
+  
+  const handleEnterAsUser = () => {
+    setIsLoggedIn(true);
+    localStorage.setItem('anmo-loggedIn', 'true');
+  };
+  
+  const handleEnterAsGuest = () => {
+    localStorage.setItem('anmo-isGuest', 'true');
+    setIsLoggedIn(true);
+    setToastMessage("لقد دخلت كضيف. سيتم حفظ جميع بياناتك وإعداداتك محليًا.");
+    setTimeout(() => setToastMessage(null), 5000);
+  };
+
+  const handleLogout = () => {
+    setIsLoggedIn(false);
+    localStorage.removeItem('anmo-loggedIn');
+    localStorage.removeItem('anmo-isGuest');
+  };
   
   // --- Download Handlers ---
   const handleDownloadEpisode = async (anime: Anime, episode: Episode) => {
@@ -1146,7 +1317,7 @@ const App = () => {
 
   const handleAddSource = (newSource: SourceData) => {
     if (sources.some(s => s.metadata.sourceName === newSource.metadata.sourceName)) {
-        alert('المصدر بنفس الاسم موجود بالفعل.');
+        alert('يوجد مصدر بنفس الاسم بالفعل.');
         return false;
     }
     const newSources = [...sources, newSource];
@@ -1158,7 +1329,7 @@ const App = () => {
     setSources(prevSources => {
         const sourceExists = prevSources.some(s => s.metadata.sourceName === editedSource.metadata.sourceName && s.metadata.sourceName !== originalName);
         if (sourceExists) {
-            alert('المصدر بنفس الاسم موجود بالفعل.');
+            alert('يوجد مصدر بنفس الاسم بالفعل.');
             return prevSources;
         }
         
@@ -1176,9 +1347,36 @@ const App = () => {
     closeEditor();
   };
 
+    const confirmUpdateSource = () => {
+        if (!sourceToUpdate) return;
+        
+        const newSourceData = updatesAvailable[sourceToUpdate.metadata.sourceName];
+        if (!newSourceData) {
+            console.error("Update data not found for:", sourceToUpdate.metadata.sourceName);
+            setSourceToUpdate(null);
+            return;
+        }
+
+        setSources(prevSources => 
+            prevSources.map(s => 
+                s.metadata.sourceName === sourceToUpdate.metadata.sourceName 
+                ? newSourceData 
+                : s
+            )
+        );
+
+        setUpdatesAvailable(prev => {
+            const newUpdates = { ...prev };
+            delete newUpdates[sourceToUpdate.metadata.sourceName];
+            return newUpdates;
+        });
+
+        setSourceToUpdate(null);
+    };
+
   const handleBulkDelete = (sourceIds: string[]) => {
       if (sources.length <= sourceIds.length) {
-          alert('لا يمكن حذف كل المصادر.');
+          alert('لا يمكنك حذف جميع المصادر.');
           return;
       }
       const newSources = sources.filter(s => !sourceIds.includes(s.metadata.sourceName));
@@ -1187,7 +1385,7 @@ const App = () => {
 
   const handleMergeSources = (sourceIds: string[], newSourceName: string) => {
       if (sources.some(s => s.metadata.sourceName === newSourceName)) {
-          alert("المصدر بنفس الاسم موجود بالفعل.");
+          alert("يوجد مصدر بنفس الاسم بالفعل.");
           return;
       }
       
@@ -1261,6 +1459,15 @@ const App = () => {
     setIsDeveloperInfoModalVisible(false);
   };
 
+  if (!appInitialized) {
+      return <div style={{ ...styles.loginContainer, alignItems: 'center' }}><div style={styles.loader}></div></div>;
+  }
+
+  if (!isLoggedIn) {
+      return <LoginScreen onLogin={handleEnterAsUser} onSkip={handleEnterAsGuest} />;
+  }
+
+
   return (
     <div style={{...styles.container, ...(selectedAnime ? styles.containerFullWidth : {})}}>
       <Header />
@@ -1288,13 +1495,13 @@ const App = () => {
             <>
                 <FilterBar />
                 {filteredAnime.length > 0 ? (
-                    <div style={styles.grid}>
+                    <div style={styles.grid} className="grid-container">
                         {filteredAnime.map(anime => <AnimeCard key={`${anime.id}-${anime.name}`} anime={anime} onClick={() => handleSelectAnime(anime)} />)}
                     </div>
                 ) : (
                     searchQuery ? 
-                    <p style={styles.noResults}>لم يتم العثور على نتائج للبحث "{searchQuery}"</p> :
-                    <p style={styles.noResults}>لا توجد مصادر أو أن المصادر فارغة. قم بإضافة مصدر جديد.</p>
+                    <p style={styles.noResults}>لم يتم العثور على نتائج لـ "{searchQuery}"</p> :
+                    <p style={styles.noResults}>لم يتم العثور على مصادر، أو أن المصادر فارغة. يرجى إضافة مصدر جديد.</p>
                 )}
             </>
         )}
@@ -1323,6 +1530,9 @@ const App = () => {
         onMerge={handleMergeSources}
         onEdit={openEditorForEdit}
         onCreate={openEditorForCreate}
+        updatesAvailable={updatesAvailable}
+        onUpdate={setSourceToUpdate}
+        onCheckForUpdates={() => checkForUpdates(sources)}
       />
       <SettingsModal
         isOpen={isSettingsModalVisible}
@@ -1330,6 +1540,7 @@ const App = () => {
         settings={settings}
         onSettingsChange={setSettings}
         onDeveloperInfoClick={() => setIsDeveloperInfoModalVisible(true)}
+        onLogout={handleLogout}
       />
       <DeveloperInfoModal
         isOpen={isDeveloperInfoModalVisible}
@@ -1360,13 +1571,27 @@ const App = () => {
             }}
           />
       )}
+       <ConfirmationDialog
+            isOpen={!!sourceToUpdate}
+            onClose={() => setSourceToUpdate(null)}
+            onConfirm={confirmUpdateSource}
+            title="تأكيد التحديث"
+            message={`هل أنت متأكد من رغبتك في تحديث المصدر "${sourceToUpdate?.metadata.sourceName}"؟ سيتم استبدال النسخة المحلية.`}
+            confirmText="تحديث"
+            confirmButtonStyle={{}}
+        />
+        {toastMessage && (
+            <div style={styles.toast} className="toast-anim">
+                {toastMessage}
+            </div>
+        )}
     </div>
   );
 };
 
 const styles: { [key: string]: React.CSSProperties } = {
   container: {
-    padding: '0 16px',
+    padding: '0 24px',
     maxWidth: '1400px',
     margin: '0 auto',
     width: '100%',
@@ -1384,11 +1609,14 @@ const styles: { [key: string]: React.CSSProperties } = {
     borderBottom: '1px solid var(--primary-color)'
   },
   logo: {
-    fontSize: '2rem',
+    fontSize: '2.2rem',
     color: 'var(--secondary-color)',
     margin: 0,
-    fontWeight: '700',
+    fontWeight: '800',
     letterSpacing: '1px'
+  },
+  logoFont: {
+    fontFamily: "'Tajawal', sans-serif",
   },
   headerActions: {
       display: 'flex',
@@ -1428,7 +1656,7 @@ const styles: { [key: string]: React.CSSProperties } = {
       gap: '12px',
       backgroundColor: 'var(--surface-color)',
       borderRadius: '28px',
-      padding: '4px 8px 4px 20px',
+      padding: '4px 20px 4px 8px',
       border: '1px solid var(--primary-color)'
   },
   searchInput: {
@@ -1439,7 +1667,7 @@ const styles: { [key: string]: React.CSSProperties } = {
       fontSize: '1.1rem',
       padding: '10px 0',
       outline: 'none',
-      fontFamily: "'Tajawal', sans-serif",
+      fontFamily: "'Roboto', sans-serif",
   },
   searchCloseButton: {
       background: 'transparent',
@@ -1463,7 +1691,7 @@ const styles: { [key: string]: React.CSSProperties } = {
     flexWrap: 'wrap'
   },
   filterButton: {
-    fontFamily: "'Tajawal', sans-serif",
+    fontFamily: "'Roboto', sans-serif",
     padding: '8px 16px',
     fontSize: '1em',
     border: '1px solid var(--primary-color)',
@@ -1481,18 +1709,19 @@ const styles: { [key: string]: React.CSSProperties } = {
   },
   grid: {
     display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))',
-    gap: '16px',
+    gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))',
+    gap: '24px',
   },
   card: {
     position: 'relative',
     overflow: 'hidden',
-    borderRadius: '12px',
-    boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
+    borderRadius: '16px',
+    boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
     transition: 'transform 0.3s ease, box-shadow 0.3s ease',
     cursor: 'pointer',
     backgroundColor: 'var(--surface-color)',
     aspectRatio: '2 / 3',
+    border: '1px solid var(--primary-color)',
   },
   cardImage: {
     width: '100%',
@@ -1505,32 +1734,34 @@ const styles: { [key: string]: React.CSSProperties } = {
     bottom: 0,
     left: 0,
     right: 0,
-    background: 'linear-gradient(to top, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0) 100%)',
-    padding: '40px 12px 12px 12px',
+    background: 'linear-gradient(to top, rgba(0,0,0,0.95) 10%, rgba(0,0,0,0) 100%)',
+    padding: '40px 16px 16px 16px',
     color: 'white',
     display: 'flex',
     flexDirection: 'column',
     justifyContent: 'flex-end',
   },
   cardTitle: {
-    margin: '0 0 4px 0',
-    fontSize: '1em',
+    margin: '0 0 8px 0',
+    fontSize: '1.1em',
     fontWeight: '700',
     lineHeight: '1.3',
+    color: 'var(--text-color)',
   },
   cardInfo: {
       display: 'flex',
       justifyContent: 'space-between',
       alignItems: 'center',
-      fontSize: '0.75em',
+      fontSize: '0.85em',
       color: 'var(--text-secondary-color)',
   },
   cardRating: {
-    backgroundColor: 'rgba(233, 69, 96, 0.8)',
-    padding: '2px 6px',
-    borderRadius: '4px',
+    backgroundColor: 'rgba(247, 37, 133, 0.8)',
+    padding: '3px 8px',
+    borderRadius: '6px',
     color: 'white',
-    fontWeight: 'bold'
+    fontWeight: 'bold',
+    backdropFilter: 'blur(5px)',
   },
   cardYear: {
       fontWeight: '500'
@@ -1549,6 +1780,7 @@ const styles: { [key: string]: React.CSSProperties } = {
     width: '100%',
     height: '100%',
     backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    backdropFilter: 'blur(5px)',
     display: 'flex',
     justifyContent: 'center',
     alignItems: 'center',
@@ -1557,7 +1789,7 @@ const styles: { [key: string]: React.CSSProperties } = {
   modalContent: {
     backgroundColor: 'var(--surface-color)',
     padding: '24px',
-    borderRadius: '12px',
+    borderRadius: '16px',
     width: '90%',
     maxWidth: '600px',
     maxHeight: '80vh',
@@ -1573,6 +1805,8 @@ const styles: { [key: string]: React.CSSProperties } = {
     justifyContent: 'space-between',
     alignItems: 'center',
     color: 'var(--secondary-color)',
+    paddingBottom: '16px',
+    borderBottom: '1px solid var(--primary-color)',
   },
   sourceList: {
     listStyle: 'none',
@@ -1590,23 +1824,24 @@ const styles: { [key: string]: React.CSSProperties } = {
     backgroundColor: 'var(--background-color)',
     borderRadius: '8px',
     transition: 'background-color 0.2s',
+    border: '1px solid var(--primary-color)',
   },
   sourceListItemSelected: {
-    backgroundColor: 'var(--primary-color)',
+    backgroundColor: 'rgba(247, 37, 133, 0.2)',
+    borderColor: 'var(--secondary-color)',
   },
   checkbox: {
     width: '18px',
     height: '18px',
     accentColor: 'var(--secondary-color)',
-    marginRight: '12px',
+    marginLeft: '12px',
+    backgroundColor: 'var(--surface-color)',
+    border: '1px solid var(--primary-color)',
   },
-  activeBadge: {
-      backgroundColor: 'var(--secondary-color)',
-      color: 'white',
-      padding: '2px 8px',
-      borderRadius: '12px',
-      fontSize: '0.8rem',
-      marginRight: '8px',
+  updateAvailableBadge: {
+      color: 'var(--secondary-color)',
+      fontWeight: 'bold',
+      fontSize: '0.9em'
   },
   modalFooter: {
       display: 'flex',
@@ -1618,7 +1853,7 @@ const styles: { [key: string]: React.CSSProperties } = {
       flexWrap: 'wrap',
   },
   modalButton: {
-    fontFamily: "'Tajawal', sans-serif",
+    fontFamily: "'Roboto', sans-serif",
     padding: '10px 20px',
     fontSize: '1em',
     border: 'none',
@@ -1626,6 +1861,7 @@ const styles: { [key: string]: React.CSSProperties } = {
     background: 'var(--secondary-color)',
     color: '#ffffff',
     cursor: 'pointer',
+    fontWeight: 'bold',
     transition: 'all 0.2s ease-in-out'
   },
   modalButtonSecondary: {
@@ -1634,9 +1870,9 @@ const styles: { [key: string]: React.CSSProperties } = {
     color: 'var(--text-secondary-color)',
   },
   modalButtonDanger: {
-    background: '#5e2e3a',
-    border: '1px solid #e94560',
-    color: '#e94560',
+    background: 'rgba(248, 81, 73, 0.1)',
+    border: '1px solid var(--danger-color)',
+    color: 'var(--danger-color)',
   },
   addSourceForm: {
       padding: '16px',
@@ -1659,18 +1895,19 @@ const styles: { [key: string]: React.CSSProperties } = {
   modalInput: {
       width: '100%',
       padding: '12px',
-      backgroundColor: 'var(--surface-color)',
+      backgroundColor: 'var(--background-color)',
       border: '1px solid var(--primary-color)',
       borderRadius: '8px',
       color: 'var(--text-color)',
-      fontFamily: "'Tajawal', sans-serif",
+      fontFamily: "'Roboto', sans-serif",
       fontSize: '1em',
-      boxSizing: 'border-box'
+      boxSizing: 'border-box',
+      transition: 'border-color 0.2s, box-shadow 0.2s',
   },
   errorMessage: {
-      color: '#e94560',
-      backgroundColor: 'rgba(233, 69, 96, 0.1)',
-      border: '1px solid #e94560',
+      color: 'var(--danger-color)',
+      backgroundColor: 'rgba(248, 81, 73, 0.1)',
+      border: '1px solid var(--danger-color)',
       padding: '10px',
       borderRadius: '8px',
       textAlign: 'center'
@@ -1679,9 +1916,9 @@ const styles: { [key: string]: React.CSSProperties } = {
   detailView: {},
   detailHeaderContainer: {
     position: 'relative',
-    height: '35vh',
-    minHeight: '250px',
-    maxHeight: '400px',
+    height: '40vh',
+    minHeight: '300px',
+    maxHeight: '450px',
     width: '100%',
     display: 'flex',
     alignItems: 'center',
@@ -1695,7 +1932,7 @@ const styles: { [key: string]: React.CSSProperties } = {
     width: '100%',
     height: '100%',
     objectFit: 'cover',
-    filter: 'blur(10px) brightness(0.5)',
+    filter: 'blur(12px) brightness(0.4)',
     transform: 'scale(1.1)',
   },
   detailBannerOverlay: {
@@ -1704,15 +1941,15 @@ const styles: { [key: string]: React.CSSProperties } = {
     left: 0,
     width: '100%',
     height: '100%',
-    background: 'linear-gradient(to top, var(--background-color) 0%, rgba(0,0,0,0.2) 100%)',
+    background: 'linear-gradient(to top, var(--background-color) 10%, rgba(0,0,0,0.3) 100%)',
   },
   backButton: {
     position: 'absolute',
     top: '20px',
-    left: '20px',
+    right: '20px',
     zIndex: 10,
-    background: 'rgba(26, 26, 46, 0.7)',
-    border: '1px solid rgba(255, 255, 255, 0.2)',
+    background: 'rgba(22, 27, 34, 0.7)',
+    border: '1px solid rgba(255, 255, 255, 0.1)',
     borderRadius: '50%',
     width: '44px',
     height: '44px',
@@ -1721,12 +1958,13 @@ const styles: { [key: string]: React.CSSProperties } = {
     justifyContent: 'center',
     cursor: 'pointer',
     color: 'white',
+    backdropFilter: 'blur(5px)',
     transition: 'background-color 0.2s',
   },
   detailContent: {
     padding: '0 24px 24px 24px',
     maxWidth: '1200px',
-    margin: '-120px auto 0 auto',
+    margin: '-150px auto 0 auto',
     position: 'relative',
     zIndex: 2,
   },
@@ -1737,11 +1975,11 @@ const styles: { [key: string]: React.CSSProperties } = {
     gap: '24px',
   },
   detailPosterImage: {
-    width: '200px',
-    height: '300px',
+    width: '220px',
+    height: '330px',
     objectFit: 'cover',
-    borderRadius: '12px',
-    boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
+    borderRadius: '16px',
+    boxShadow: '0 10px 30px rgba(0,0,0,0.6)',
     border: '2px solid var(--surface-color)',
     flexShrink: 0,
   },
@@ -1750,12 +1988,12 @@ const styles: { [key: string]: React.CSSProperties } = {
     paddingBottom: '12px',
   },
   detailTitle: {
-    fontSize: '2.8em',
-    fontWeight: 700,
+    fontSize: '3.2em',
+    fontWeight: 800,
     color: 'var(--text-color)',
-    margin: '0 0 12px 0',
-    lineHeight: 1.2,
-    textShadow: '0 2px 4px rgba(0,0,0,0.7)',
+    margin: '0 0 16px 0',
+    lineHeight: 1.1,
+    textShadow: '0 2px 8px rgba(0,0,0,0.8)',
   },
   detailMeta: {
     display: 'flex',
@@ -1773,6 +2011,7 @@ const styles: { [key: string]: React.CSSProperties } = {
     padding: '4px 10px',
     borderRadius: '16px',
     fontSize: '0.9em',
+    border: '1px solid var(--primary-color)',
   },
   genreContainer: {
     display: 'flex',
@@ -1789,10 +2028,10 @@ const styles: { [key: string]: React.CSSProperties } = {
     cursor: 'pointer'
   },
   detailSection: {
-    marginTop: '32px',
+    marginTop: '40px',
   },
   sectionTitle: {
-    fontSize: '1.6em',
+    fontSize: '1.8em',
     fontWeight: 700,
     color: 'var(--secondary-color)',
     marginBottom: '16px',
@@ -1819,7 +2058,7 @@ const styles: { [key: string]: React.CSSProperties } = {
     gap: '16px',
     padding: '16px',
     backgroundColor: 'var(--surface-color)',
-    borderRadius: '8px',
+    borderRadius: '12px',
     transition: 'background-color 0.2s, transform 0.2s',
     border: '1px solid var(--primary-color)',
   },
@@ -1853,6 +2092,7 @@ const styles: { [key: string]: React.CSSProperties } = {
         right: 0,
         bottom: 0,
         backgroundColor: 'rgba(0, 0, 0, 0.85)',
+        backdropFilter: 'blur(5px)',
         display: 'flex',
         justifyContent: 'center',
         alignItems: 'center',
@@ -1945,6 +2185,7 @@ const styles: { [key: string]: React.CSSProperties } = {
         padding: '16px 24px',
         backgroundColor: 'var(--surface-color)',
         flexShrink: 0,
+        borderBottom: '1px solid var(--primary-color)',
     },
     editorMeta: {
         display: 'flex',
@@ -2014,7 +2255,7 @@ const styles: { [key: string]: React.CSSProperties } = {
     },
     settingsSectionTitle: {
         margin: 0,
-        fontSize: '1.1em',
+        fontSize: '1.2em',
         color: 'var(--text-secondary-color)',
         fontWeight: 500,
     },
@@ -2052,8 +2293,8 @@ const styles: { [key: string]: React.CSSProperties } = {
         border: '3px solid var(--primary-color)',
         borderTop: '3px solid var(--secondary-color)',
         borderRadius: '50%',
-        width: '20px',
-        height: '20px',
+        width: '24px',
+        height: '24px',
         animation: 'spin 1s linear infinite',
     },
     downloadedList: {
@@ -2106,18 +2347,61 @@ const styles: { [key: string]: React.CSSProperties } = {
     bottomNavButtonActive: {
         color: 'var(--secondary-color)',
     },
-    bottomNavIcon: {
-        fill: 'var(--text-secondary-color)',
-        width: '24px',
-        height: '24px',
-        transition: 'fill 0.2s ease-in-out',
+    iconContainer: {
+      width: '28px',
+      height: '28px',
+      transition: 'all 0.2s ease-in-out',
+      display: 'flex',
+      justifyContent: 'center',
+      alignItems: 'center'
     },
-    bottomNavIconActive: {
-        fill: 'var(--secondary-color)',
+    bottomNavIconActiveContainer: {
+        // Future styling for active icon container
     },
     bottomNavLabel: {
         fontSize: '0.75rem',
         fontWeight: '500',
+    },
+    // --- Login Screen ---
+    loginContainer: {
+        display: 'flex',
+        flexDirection: 'column',
+        justifyContent: 'center',
+        alignItems: 'center',
+        width: '100vw',
+        height: '100vh',
+        background: 'linear-gradient(160deg, var(--background-color) 0%, #111b33 100%)',
+    },
+    loginBox: {
+        backgroundColor: 'var(--surface-color)',
+        padding: '32px',
+        borderRadius: '16px',
+        border: '1px solid var(--primary-color)',
+        boxShadow: '0 10px 30px rgba(0,0,0,0.5)',
+        width: '90%',
+        maxWidth: '400px',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '16px',
+        textAlign: 'center',
+    },
+    loginTitle: {
+        color: 'var(--text-color)',
+        margin: '0 0 8px 0',
+    },
+    // --- Toast ---
+    toast: {
+      position: 'fixed',
+      bottom: '80px',
+      left: '50%',
+      transform: 'translateX(-50%)',
+      backgroundColor: 'var(--secondary-color)',
+      color: 'white',
+      padding: '12px 24px',
+      borderRadius: '24px',
+      zIndex: 1500,
+      boxShadow: '0 4px 15px rgba(0,0,0,0.3)',
+      fontWeight: 'bold',
     },
 };
 
@@ -2127,25 +2411,41 @@ styleSheet.innerText = `
     from { opacity: 0; }
     to { opacity: 1; }
   }
+  @keyframes slideInUp {
+    from { opacity: 0; transform: translateY(20px) scale(0.98); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+  }
   @keyframes spin {
     0% { transform: rotate(0deg); }
     100% { transform: rotate(360deg); }
   }
-  .detailView {
-    animation: fadeIn 0.4s ease-in-out;
+  @keyframes toast-in-out {
+    0% { transform: translate(-50%, 100px); opacity: 0; }
+    15% { transform: translate(-50%, 0); opacity: 1; }
+    85% { transform: translate(-50%, 0); opacity: 1; }
+    100% { transform: translate(-50%, 100px); opacity: 0; }
   }
-  .iconButton:hover {
-    background-color: var(--primary-color);
+  .toast-anim { animation: toast-in-out 5s ease-in-out forwards; }
+  
+  .grid-container .card {
+    animation: slideInUp 0.5s ease-out backwards;
   }
-  .iconButton:hover .icon {
-    fill: var(--secondary-color);
-  }
-  .iconButton:disabled {
-      cursor: not-allowed;
-  }
-  .iconButton:disabled .icon {
-      fill: var(--primary-color);
-  }
+  .grid-container .card:nth-child(1) { animation-delay: 0.05s; }
+  .grid-container .card:nth-child(2) { animation-delay: 0.1s; }
+  .grid-container .card:nth-child(3) { animation-delay: 0.15s; }
+  .grid-container .card:nth-child(4) { animation-delay: 0.2s; }
+  .grid-container .card:nth-child(5) { animation-delay: 0.25s; }
+
+  .modal-backdrop { animation: fadeIn 0.3s ease; }
+  .modal-content { animation: slideInUp 0.4s ease; }
+  .detailView { animation: fadeIn 0.4s ease-in-out; }
+
+  .iconButton:hover { background-color: var(--primary-color); }
+  .iconButton:hover .icon { fill: var(--secondary-color); }
+  .iconButton:disabled { cursor: not-allowed; opacity: 0.5; }
+  .iconButton:disabled .icon { fill: var(--primary-color); }
+  .iconButton[disabled] svg { fill: var(--success-color) !important; }
+
   .searchCloseButton:hover {
       background-color: var(--primary-color);
       color: var(--secondary-color);
@@ -2156,13 +2456,14 @@ styleSheet.innerText = `
   }
   .card:hover {
     transform: translateY(-8px);
-    box-shadow: 0 12px 28px rgba(233, 69, 96, 0.3);
+    box-shadow: 0 12px 28px rgba(247, 37, 133, 0.2), 0 0 40px rgba(247, 37, 133, 0.1);
+    border-color: rgba(247, 37, 133, 0.5);
   }
-  .card:hover .cardImage {
-    transform: scale(1.05);
-  }
+  .card:hover .cardImage { transform: scale(1.05); }
+
   .modalButton:hover:not(:disabled) {
-    opacity: 0.8;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 15px rgba(247, 37, 133, 0.3);
   }
   .modalButton:disabled {
     opacity: 0.5;
@@ -2173,36 +2474,32 @@ styleSheet.innerText = `
       color: var(--text-color);
   }
    .modalButtonDanger:hover:not(:disabled) {
-      background-color: #e94560;
+      background-color: var(--danger-color);
       color: white;
+  }
+  input:focus, textarea:focus {
+      outline: none;
+      border-color: var(--secondary-color);
+      box-shadow: 0 0 0 3px rgba(247, 37, 133, 0.3);
   }
   .backButton:hover {
     background-color: var(--secondary-color);
   }
   .episodeItem:hover {
       background-color: var(--primary-color);
-  }
-  .episodeItem:hover .episodeItem-play {
-      transform: scale(1.1);
+      transform: translateX(-4px);
   }
   .genreTag:hover {
       background-color: var(--secondary-color);
-      color: var(--text-color);
+      color: white;
   }
-  .editorAccordionSummary::marker {
-      color: var(--secondary-color);
-  }
+  .editorAccordionSummary::marker { color: var(--secondary-color); }
   .editorDeleteButton:hover {
-      background-color: #5e2e3a;
-      color: #e94560;
-      border-color: #e94560;
+      background-color: rgba(248, 81, 73, 0.1);
+      color: var(--danger-color);
+      border-color: var(--danger-color);
   }
-  .moreMenuItem:hover {
-      background-color: var(--primary-color);
-  }
-  .downloadDeleteButton:hover .icon {
-    fill: #e94560;
-  }
+  .downloadDeleteButton:hover .icon { fill: var(--danger-color); }
 
   @media (max-width: 768px) {
     .detailPrimaryInfo {
@@ -2216,25 +2513,19 @@ styleSheet.innerText = `
         margin-top: -80px; /* Pull it up a bit */
     }
     .detailTitle {
-        font-size: 2em !important;
+        font-size: 2.2em !important;
     }
-    .detailMetaContainer {
-       width: 100%;
-    }
-    .genreContainer {
-       justify-content: center;
-    }
+    .detailMetaContainer { width: 100%; }
+    .genreContainer { justify-content: center; }
     .detailContent {
-        margin-top: -20px !important;
+        margin-top: -40px !important;
         padding-left: 16px !important;
         padding-right: 16px !important;
     }
-    .container {
-        padding: 0 16px;
-    }
+    .container { padding: 0 16px; }
     .grid {
         grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)) !important;
-        gap: 12px !important;
+        gap: 16px !important;
     }
   }
 `;
